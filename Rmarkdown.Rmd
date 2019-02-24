@@ -1,0 +1,247 @@
+
+## ANÁLISIS DE LA LIGA PROFESIONAL DE FÚTBOL ESPAÑOLA    
+
+
+
+El presente trabajo tratará analizar diferentes aspectos de la liga de fútbol española a fin de extraer conclusiones que nos ayuden a determinar algunos de los factores más influyentes en el éxito o fracaso de un equipo.
+
+De manera paralea, y en base al histórico de partidos jugados desde el año 1970, desarrollaremos un programa que nos permita determinar el vencedor de cada temporada, decada, mayores goleadores, o la influencia de *"jugar en casa"* o no entre otros aspectos.
+
+Con el objetivo de mantener un estricto orden en el desarrollo de la práctica,  seguiremos el índice facilitado por los docentes y a continuación plasmado:
+
+1. Obtención de los datos
+2. Tratamiento y limpieza
+3. Enriquecimiento de datos
+4. Análisis exploratorio
+
+### **Obtención de los datos**
+
+En nuestro caso en particular hemos empleado archivos CSV, Excell y websrcapping de cara al desarrollo de la práctica. El archivo principal es un CSV procedente de la página [Kaggle](https://www.kaggle.com/).
+
+##### **CSV**
+
+Uno ha sido el archivo CSV empleado, se trata de un gran registro que inicia en la *temporada 70-71*, y que abarca todos los partidos de primera y segunda división hasta nuestros días. De cara a su trabajo  hemos de proceder a leerlo de la siguiente manera:
+
+```{r}
+datos_hist <- read.csv("FMEL_dataset.csv")
+```
+
+A fin de realizar un primer acercamiento examinaremos brevemente el archivo para observar que contamos con un total de 37.147 partidos registrados.
+
+```{r}
+print(dim(datos_hist))
+```
+
+
+
+### **Tratamiento y limpieza**
+
+En cuanto al tratamiento y limpieza de los datos, hemos tenido que eliminar determinadas columnas que no aportaban información alguna.
+
+```{r}
+datos_hist$timestamp <- NULL
+```
+
+De igual manera, hemos creado columnas que no existían para su posterior tratamiento y exploración en base a datos pertenecientes a la información de origen. Por una parte, para saber la diferencia de goles neta en cada partido, y por otra, de cara a tener el resultado de cada partido en una única columna.
+
+```{r}
+datos_hist$dif_goles <- datos_hist$localGoals - datos_hist$visitorGoals
+
+datos_hist$resultado <- paste(datos_hist$localGoals, datos_hist$visitorGoals, sep= "-")
+
+```
+
+Por último, hemos unificado el formato de los campos con el objetivo de obtener nombres representativos y usables (minúsculas, sin caracteres extraños, ...).
+
+```{r}
+datos_hist$localTeam <- tolower(datos_hist$localTeam)
+datos_hist$localTeam <- gsub(" ","_",datos_hist$localTeam)
+
+
+datos_hist$visitorTeam <- tolower(datos_hist$visitorTeam)
+datos_hist$visitorTeam <- gsub(" ","_",datos_hist$visitorTeam)
+
+```
+ 
+### **Enriquecimiento de datos**
+
+##### **Excell**
+
+Se han empleado dos archivos excell confeccionados a mano por nosotros mismos de cara al análisis y visualización de la relación entre distintas variables. Para ello ha sido necesario la instalación de la librería **readxl** y posterior lectura del archivo de la siguinete manera:
+
+
+
+```{r}
+#install.packages("readxl")
+library(readxl)
+
+datos_equipos <- read_excel("datos_equipos.xlsx")
+
+datos_espana <- read_excel("datos_espana.xlsx")
+```
+
+
+Los datos que han sido empleados en este trabajo y que se encuentran incluidos en los dos documentos Excell proceden de las siguientes páginas: [Deuda acumulada de los clubs de fútbol](https://www.marca.com/futbol/primera-division/album/2018/05/31/5b0fc16ae2704e52708b467e_8.html), [Número de abonados por club](https://eldesmarque.com/actualidad/futbol/lfp-primera-liga-santander/195713-la-clasificacion-de-laliga-segun-el-numero-de-abonados) y el [ reparto de los ingresos audiovisuales](https://www.laliga.es/lfp/reparto-ingresos-audiovisuales)
+
+
+### **Análisis exploratorio**
+
+De cara a mostrar los datos recabados y la elaboración de gráficos emplearemos la librería ggplot2
+
+```{r}
+#install.packages("ggplot2")
+library(ggplot2)
+```
+
+### *Puntos actuales respecto reparto de derechos televisivos*
+
+En primer lugar trataremos de dar respuesta a una pregunta que habitualmente se repite entre los aficionados de la liga española: 
+
+*¿Posee una influencia directa el número de puntos que consiguen los equipos de fútbol respecto a los ingresos recibidos por parte de la federación de fútbol a raiz del reparto de los derechos televisivos?*
+
+La  liga de fútbol española es especialmente injusta en este reparto en comparación con el resto de ligas europeas, y como veremos en la gráfica existe una clara correlación entre ambos aspectos.
+
+
+```{r}
+p <- ggplot(datos_equipos, aes(x = puntos, y = ingresos_audiovisuales,
+                          colour = comunidad )) + geom_point(aes(size = abonados)) + geom_smooth(aes(group = 1)) + ggtitle("Puntos respecto ingresos TV") + 
+  labs(x = "Puntos totales", 
+       y = "Ingresos televisivos en millones de €")
+p
+
+```
+
+Podemos observar como esta relación es más que evidente, así, los equipos con más puntos a día de hoy, son aquellos que percibieron una mayor cantidad de dinero por parte de la federación al inicio de la temporada. Existe igualmente una relación entre el número de abonados (representado por el tamaño de los puntos) y la posición que estos ocupan en la liga. Por último, y afin de diferenciar las comunidades a las que pertenecen los equipos, les hemos asignado un color diferente a cada uno presentado en el índice derecho.
+
+Para concluir lo explicado de una manera estadística, incluiremos que la relación entre ambas variables posee una **correlación del 0.835**, algo que demuestra una fuerte correlación positiva.
+
+```{r}
+corr <- cor(datos_equipos$puntos, datos_equipos$ingresos_audiovisuales)
+
+print(corr)
+```
+
+### *Reparto de la deuda contraida por los equipos de fútbol*
+
+Es conocido por todos que los equipos de fútbol poseen acumulada una deuda muy abultada, sin embargo, se tiende a generalizaciones pensando que esta deuda está repartida "más o menos" de manera equitativa. Lejos de la realidad veremos que no es así. En primer lugar veremos a cuanto asciende el total de la deuda (en millones de €).
+
+```{r}
+sum(datos_equipos$deuda)
+```
+
+La realidad, es que tanto gobierno como bancos son especialmente permisivos con la deuda que los equipos soportan, sin embargo, esta permisividad no es igual para todos, como a continuación observaremos.
+
+
+```{r}
+equ.ord <- datos_equipos[order(datos_equipos$deuda),]
+
+d =mean(equ.ord$deuda)
+t <-ggplot(equ.ord, aes(x = rank(-deuda), y = deuda, fill=deuda)) + geom_col()+ theme(legend.position="none",axis.text.x = element_blank()) + scale_fill_gradient(low="yellow", high="red")+ geom_hline(yintercept = d, col = "red")
+
+
+w <- t + annotate("text", x = 1, y = 760, label = "ATM", size = 6 )
+w2 <- w + annotate("text", x = 2, y = 530, label = "FCB" , size = 6)
+w3 <- w2 + annotate("text", x = 3, y = 400, label = "RMCF" , size = 5)
+w4 <- w3 + annotate("text", x = 4, y = 365, label = "VAL.CF", size = 4)
+y <- w4 + annotate("text", x = 10, y = 155, label = d, size = 8)
+
+deuda_final <- y + ggtitle("DEUDA TOTAL POR EQUIPOS") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(x = "EQUIPOS", 
+       y = "DEUDA EN MILLOS DE €")
+
+deuda_final
+
+```
+
+Este gráfico nos permite darnos cuenta que prácticamente la totalidad de la deuda se encuentra en manos de los cuatro grandes equipos de la liga española. *¿Influirá esta permisividad en los buenos resultados que recojen cada año estos clubes?*
+
+Desde luego, sobrepasan con creces la media de la deuda representada con una línea roja en el gráfico (124,4345 millones de €).
+
+Con el objetivo de ser más exactos concluir que esta deuda supone el 80.64% del total.
+
+
+
+### *Relación entre el número de equipos por comunidad autónma y el PIB per cápita de cada una de ellas*
+
+Para poder realizar el siguiente gráfico hemos tenido que instalar y leer **ggrepel**
+
+```{r}
+#install.packages("ggrepel")
+
+library(ggrepel)
+```
+
+Las comunidades autónomas con un mayor PIB per cápita acumulan una mayor cantidad de empresas en su territorio, de igual manera, esto ocurre cuando de equipos de primera división hablamos.
+
+```{r}
+h <- ggplot(datos_espana, aes(x=pib_per_capita , y=numero_equipos, label= comunidad)) +
+  geom_point(color = "blue", size = 3)+ ggtitle("Relación entre el número de equipos y PIB per cápita por comunidades") + 
+  labs(x = "PIB per cápita", 
+       y = "Número de equipos por comunidad") +
+  ylim(0,6) + xlim(17500,35000)+  geom_smooth(method = lm, linetype = "dashed", color = "red", se=F)+ geom_text_repel(aes(label = comunidad),
+                          box.padding   = 0.35, 
+                          point.padding = 0.5,
+                          segment.color = 'grey50') +
+  theme_bw() +theme(plot.title = element_text(hjust = 0.5, size = 15))
+h
+```
+
+Como se observa, existe una relación positiva entre ambas variables, y esto lo corroboramos calculando la correlación, la cual es de 0.76.
+
+```{r}
+cor(datos_espana$numero_equipos,datos_espana$pib_per_capita)
+
+```
+
+Pese a una correlación positiva, encontramos un valor atípico u outlier, se trata de Aragón. 
+
+```{r}
+outlier <- datos_espana[datos_espana$numero_equipos == 1 ,]
+
+outlier <- outlier[outlier$pib_per_capita > 25000,1]
+
+outlier
+```
+
+Esto se puede explicar debido al gran crecimiento de esta comunidad a lo largo de los últimos años, liderando el pasado 2018 el crecimiento del PIB dentro de España con un 3,6%, 0,9% más que la media nacional y 1.2% más respecto del conjunto de la UE.
+
+Esto sumado a que se trata de una de las 4 comunidades con menor densidad de población nos hace entender mejor la anomalía del dato.
+
+### *La influencia de jugar como local*
+
+El popularmente llamado *"el jugador número 12"* hace referencia a la ventaja del equipo local frente al visitante debido a la presión de los aficionados y conocimiento pleno de las características del terreno de juego. 
+
+En el siguiente gráfico analizaremos la influencia de jugar en "casa", realizando un histograma de los resultados netos de cada partido desde la temporada 70-71, es decir, el resultado de restarle a los goles metidos por el equipo local los anotados por el visitante. Para ello, emplearemos la columna creada con anterioridad.
+
+```{r}
+ggplot(datos_hist, aes(x=dif_goles)) + 
+  geom_histogram(aes(y=..density..),     
+                 binwidth=1,
+                 colour="yellowgreen", fill="chartreuse4")+ theme_classic() +
+  geom_vline(data = datos_hist, aes(xintercept=mean(dif_goles)),
+                                                    linetype="F1", size=1, color="BLACK")+
+labs(title="Histograma del resultado de goles neto como anfitrión",x="Golaverage de partidos como anfitrión", y = "Densidad")
+
+
+```
+
+De esta manera, y auqnue a primera vista pueda no parecer evidente, encontramos que el histograma se encuentra desplazado hacía la derecha, y así, mientras que el primer resultado de golaverage es 0, los siguientes dos con mayor densidad son el 1 y 2.
+
+Esto podemos comprobarlo resultado de realizar la media, la cual resulta ser 0.578 (representada con una línea negra), lo que significa que de media el equipo local anota 0.578 goles más que el equipo visitante.
+
+### *Los resultados más habituales*
+
+Para el desarrollo de la siguiente gráfica emplearemos la columna creada con anterioridad en la que se nos muestra el resultado de cada partido.
+
+
+```{r}
+p7 <- ggplot(datos_hist, aes(x = resultado)) +
+        geom_bar(aes(y = ..count..), stat = "count")+ coord_flip()+
+labs(title="Resultados de los partidos desde la temporado 70-71",x="Resultado", y = "Cantidad de veces")
+p7
+
+```
+
+Así, podemos observar como el resultado más repetido es el 1-0, seguido del 1-1 y el 0-0. Los resultados más abultados son aquellos con una menor aparición, sin embargo, incluso en estos, la distribución se asemeja siempre mucho a la de los partidos con menos goles.
+
